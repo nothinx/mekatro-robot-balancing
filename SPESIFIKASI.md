@@ -1,7 +1,5 @@
 # Tugas Rancang Mekatronika: Robot Balancing Roda Dua dengan PID
 
-Spesifikasi minimal perancangan. Bagian bertanda **[diisi dosen]** belum ditetapkan.
-
 ## 1. Tujuan
 
 Mahasiswa merancang, merakit, dan memprogram robot roda dua yang bisa berdiri tegak sendiri. Robot
@@ -14,9 +12,6 @@ Tugas ini menggabungkan materi Topik 3 (MPU6050 lewat I2C) dan Topik 6 (motor DC
 
 | Hal | Ketentuan |
 |---|---|
-| Anggota kelompok | **[diisi dosen]** |
-| Durasi | **[diisi dosen]** minggu |
-| Pengadaan komponen | **[diisi dosen]**: disediakan lab atau dibeli kelompok |
 | Mikrokontroler | Black Pill STM32F411CEU6, Arduino IDE, sama seperti praktikum |
 | Simulasi pendukung | `simulasi/` di folder ini; dipakai untuk memahami cara kerja dan memilih rentang gain sebelum merakit |
 
@@ -97,7 +92,7 @@ lain; rentang ini hanya titik awal.
 | Uji | Prosedur | Lulus minimal |
 |---|---|---|
 | U1 Berdiri | Robot dilepas di lantai datar setelah kalibrasi | Berdiri ≥ 30 detik tanpa disentuh, 3 dari 3 percobaan |
-| U2 Gangguan | Dorongan standar di dek atas: bandul **[diisi dosen: massa dan sudut lepas]** | Pulih tanpa jatuh, 2 dari 3 percobaan |
+| U2 Gangguan | Dorongan standar di dek atas, sama untuk semua kelompok | Pulih tanpa jatuh, 2 dari 3 percobaan |
 | U3 Efek gain | Rekam log untuk P saja, PD, dan PID | Tiga plot sudut terhadap waktu, beserta penjelasannya |
 | U4 Pemutus | Robot dimiringkan paksa melewati 40° | Motor berhenti dan tidak menyala sendiri |
 | U5 Loop | Ukur periode loop (toggle pin + osiloskop, atau `micros()`) | Rata-rata 5 ms ± 0,2 ms |

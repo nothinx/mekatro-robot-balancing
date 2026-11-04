@@ -19,8 +19,3 @@ dan browser terbuka otomatis. Biarkan jendela hitamnya terbuka selama simulasi d
 
 Halaman tidak bisa dibuka langsung dari `index.html` (file://), karena browser memblokir modul JavaScript
 dari file lokal.
-
-## Bagian yang belum ditetapkan
-
-Di `SPESIFIKASI.md`, bagian bertanda **[diisi dosen]**: jumlah anggota kelompok, durasi, pengadaan
-komponen, dan dorongan standar untuk uji U2.
