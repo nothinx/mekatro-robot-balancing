@@ -1,5 +1,10 @@
 # Tugas Rancang Mekatronika: Robot Balancing Roda Dua dengan PID
 
+> **Dokumen acuan, bukan syarat.** Yang wajib hanya bagian *Ketentuan* di
+> `Panduan_Tugas_Rancang_Robot_Balancing.pdf`. Angka dan cara di bawah ini (termasuk kolom "Minimal (wajib)")
+> adalah contoh rancangan yang terbukti bekerja di simulasi; boleh dipakai sebagai titik awal, boleh juga
+> diganti dengan rancangan kelompok sendiri asalkan alasannya ditulis di laporan.
+
 ## 1. Tujuan
 
 Mahasiswa merancang, merakit, dan memprogram robot roda dua yang bisa berdiri tegak sendiri. Robot
