@@ -18,30 +18,39 @@ PERINTAH = [
      ["Buat robot roda dua sesumbu tanpa roda bantu, roda berdiameter 60–70 mm.",
       "Badan minimal 2 tingkat dek yang kaku, tinggi total 180–280 mm dari lantai, jejak roda maksimal 200 mm, "
       "massa total maksimal 800 g.",
-      "Pasang MPU6050 di bidang tengah robot, sedekat mungkin dengan sumbu roda, sumbu X sensor searah maju.",
+      "Pasang sensor kemiringan di bidang tengah robot, sedekat mungkin dengan sumbu roda, dengan salah satu "
+      "sumbu sensor searah maju.",
       "Pasang baterai di dek atas dengan kuat dan tiga kenop di tempat yang terjangkau tangan.",
       "Buat gambar rancangan (sketsa atau CAD) dengan ukuran utama dan posisi pusat massa hasil hitung atau ukur."]),
     ("Rangkai sistem elektronik",
-     ["Gunakan Black Pill STM32F411CEU6, MPU6050, L298N, 2 motor DC bergearbox 6 V, baterai 2S 18650, "
-      "saklar daya, sekring 2–3 A, 3 potensiometer 10 kΩ linear, dan 1 tombol.",
-      "Hubungkan kaki ujung potensiometer ke 3V3, bukan 5 V. Satukan semua GND.",
-      "Ikuti peta pin: MPU6050 di PB6 (SCL) dan PB7 (SDA); L298N di PA8, PB12, PB13 (motor kiri) dan "
-      "PA9, PB14, PB15 (motor kanan); kenop di PA1, PA2, PA3; tombol di PB0.",
-      "Buat skema rangkaian lengkap beserta peta pin."]),
+     ["Gunakan mikrokontroler Black Pill STM32F411CEU6.",
+      "Pilih sendiri sensor kemiringan berupa IMU yang menyediakan gyro dan akselerometer, atau sudut hasil fusi "
+      "(contoh: MPU6050, MPU9250, ICM-20948, BMI160, BNO055).",
+      "Pilih sendiri motor (DC bergearbox atau stepper, dua buah yang sama) beserta driver yang cocok dengan "
+      "tegangan baterai dan arus motor (contoh: L298N, TB6612FNG, DRV8833, BTS7960, A4988, TMC2209).",
+      "Lengkapi dengan baterai yang sesuai, saklar daya, sekring, 3 potensiometer linear, dan 1 tombol.",
+      "Hubungkan kaki ujung potensiometer ke tegangan referensi ADC (3V3), bukan 5 V. Satukan semua GND.",
+      "Susun peta pin sendiri: PWM/STEP dari pin timer, kenop di pin ADC, hindari PA0 (tombol KEY bawaan).",
+      "Buat skema rangkaian lengkap beserta peta pin, dan tulis alasan pemilihan sensor, driver, dan motor."]),
     ("Buat program firmware",
      ["Loop kontrol berperiode tetap 5 ms (200 Hz) dengan micros(), tanpa delay() di dalam loop.",
-      "Kalibrasi gyro saat robot diam: rata-rata minimal 200 bacaan disimpan sebagai bias.",
+      "Kalibrasi sensor saat robot diam: offset gyro dirata-rata dari minimal 200 bacaan, atau pakai prosedur "
+      "kalibrasi bawaan sensor.",
       "Ukur dan simpan titik nol (sudut setimbang) saat robot dipegang di posisi setimbang.",
-      "Hitung sudut dengan filter komplementer dan beri alasan nilai alpha yang dipilih.",
-      "Baca kenop maksimal 20 Hz, haluskan, lalu petakan ke gain dengan K = Kmaks × (ADC/4095)².",
-      "Hitung PID dengan suku D dari laju gyro dan suku I dengan anti-windup.",
-      "Tambahkan PWM minimum untuk mengatasi deadband motor; nilainya diukur sendiri.",
+      "Hitung sudut dengan fusi gyro dan akselerometer (filter komplementer, Kalman, Madgwick/Mahony, atau fusi "
+      "bawaan sensor) dan beri alasan parameter yang dipilih.",
+      "Baca kenop maksimal 20 Hz, haluskan, lalu petakan ke gain dengan K = Kmaks × (ADC/ADC maks)².",
+      "Hitung PID dengan suku D dari laju sudut gyro dan suku I dengan anti-windup.",
+      "Petakan keluaran PID ke motor: PWM dengan kompensasi deadband untuk motor DC, atau kecepatan langkah "
+      "berbatas untuk stepper.",
       "Matikan motor bila kemiringan melebihi 40° dan nyalakan lagi hanya lewat tombol.",
-      "Kirim log serial CSV minimal 50 Hz dengan format t_ms,sudut,pwm,kp,ki,kd; LED PC13 berkedip saat PID aktif."]),
+      "Kirim log serial CSV minimal 50 Hz dengan format t_ms,sudut,keluaran,kp,ki,kd; LED PC13 berkedip saat "
+      "PID aktif."]),
     ("Pelajari sistem dengan simulasi",
      [f"Buka simulasi di {SIMULASI} atau dari folder simulasi/ di repositori.",
       "Coba P saja, PD, dan PID; lewati kalibrasi; geser baterai; bandingkan varian badan. "
-      "Catat rentang gain awal yang akan dipakai pada robot nyata."]),
+      "Komponen di simulasi (MPU6050, L298N, motor TT) hanya contoh; prinsipnya sama untuk komponen pilihan "
+      "kelompok."]),
     ("Tuning dan uji robot",
      ["U1 Berdiri: robot dilepas di lantai datar setelah kalibrasi, berdiri minimal 30 detik tanpa disentuh, "
       "3 kali percobaan.",
@@ -51,8 +60,8 @@ PERINTAH = [
       "U4 Pemutus: miringkan robot melewati 40°, motor harus berhenti dan tidak menyala sendiri.",
       "U5 Loop: ukur periode loop dengan osiloskop atau micros(), rata-rata 5 ms ± 0,2 ms."]),
     ("Susun laporan dan video",
-     ["Laporan berisi gambar rancangan, skema, perhitungan (tegangan efektif motor setelah L298N, kecepatan "
-      "roda maksimum, pusat massa), prosedur tuning, plot U3, nilai gain akhir, dan analisis kegagalan "
+     ["Laporan berisi gambar rancangan, skema, alasan pemilihan sensor, driver, dan motor, perhitungan "
+      "(tegangan dan arus efektif motor setelah driver, kecepatan roda maksimum, pusat massa), prosedur tuning, plot U3, nilai gain akhir, dan analisis kegagalan "
       "selama tuning.",
       "Kode program dikomentari dan dilampirkan.",
       "Video maksimal 2 menit yang memperlihatkan U1 dan U2."]),
@@ -65,11 +74,12 @@ RUBRIK = [
      "Syarat terpenuhi; gambar lengkap tetapi pusat massa tidak dihitung",
      "Satu atau dua syarat tidak terpenuhi, atau gambar tanpa ukuran",
      "Lebih dari dua syarat tidak terpenuhi atau tanpa gambar"],
-    ["2", "Rangkaian elektronik dan skema", "10",
-     "Sesuai peta pin, kenop ke 3V3, sekring dan saklar ada, kabel rapi; skema lengkap",
-     "Rangkaian benar, skema lengkap, kerapian kurang",
-     "Rangkaian bekerja tetapi ada pengaman yang tidak dipasang atau skema tidak lengkap",
-     "Rangkaian salah atau tanpa skema"],
+    ["2", "Pemilihan komponen, rangkaian, dan skema", "10",
+     "Sensor, driver, dan motor dipilih dengan alasan dan perhitungan yang benar; kenop ke 3V3, pengaman "
+     "lengkap, kabel rapi; skema dan peta pin lengkap",
+     "Pemilihan beralasan dan rangkaian benar; perhitungan atau kerapian kurang",
+     "Rangkaian bekerja tetapi pemilihan tanpa alasan, pengaman kurang, atau skema tidak lengkap",
+     "Rangkaian salah, komponen tidak cocok, atau tanpa skema"],
     ["3", "Program firmware", "20",
      "Semua fitur wajib ada dan benar; kode terstruktur dan dikomentari",
      "Satu fitur wajib kurang tepat",

@@ -3,10 +3,13 @@
 ## 1. Tujuan
 
 Mahasiswa merancang, merakit, dan memprogram robot roda dua yang bisa berdiri tegak sendiri. Robot
-menggunakan kendali PID dengan masukan sudut kemiringan dari MPU6050. Ketiga penguatan PID (Kp, Ki, Kd)
-diatur langsung dengan tiga potensiometer, sehingga efek setiap suku bisa dirasakan saat robot berjalan.
+menggunakan kendali PID dengan masukan sudut kemiringan dari sensor inersia (IMU). Ketiga penguatan PID
+(Kp, Ki, Kd) diatur langsung dengan tiga potensiometer, sehingga efek setiap suku bisa dirasakan saat robot
+berjalan.
 
-Tugas ini menggabungkan materi Topik 3 (MPU6050 lewat I2C) dan Topik 6 (motor DC, L298N, PID).
+Jenis sensor, driver motor, dan motor bebas dipilih kelompok, asalkan memenuhi fungsi di bawah dan
+alasan pemilihannya ditulis di laporan. Tugas ini melanjutkan materi Topik 3 (sensor I2C) dan Topik 6
+(motor DC, driver, PID).
 
 ## 2. Ketentuan umum
 
@@ -25,7 +28,7 @@ Tugas ini menggabungkan materi Topik 3 (MPU6050 lewat I2C) dan Topik 6 (motor DC
 | M4 | Tinggi total | 180–280 mm dari lantai | ± 235 mm (sekitar 3,6 kali diameter roda) |
 | M5 | Jejak roda (tengah ke tengah) | ≤ 200 mm | ± 165 mm |
 | M6 | Massa total | ≤ 800 g | 450–550 g |
-| M7 | Letak MPU6050 | Di bidang tengah robot, sedekat mungkin dengan sumbu roda, sumbu X sensor searah maju | Di bawah dek bawah, tepat di atas sumbu roda |
+| M7 | Letak sensor | Di bidang tengah robot, sedekat mungkin dengan sumbu roda, salah satu sumbu sensor searah maju | Di bawah dek bawah, tepat di atas sumbu roda |
 | M8 | Letak baterai | Di dek atas, terpasang kuat (tidak bergeser saat robot jatuh) | Holder 2×18650 dengan pengunci |
 | M9 | Kenop | 3 potensiometer terjangkau tangan tanpa membongkar robot | Di tepi depan dek atas, diberi label Kp, Ki, Kd |
 | M10 | Kekakuan | Tidak ada bagian yang bergoyang terhadap badan; motor dibaut ke braket, bukan hanya dilem | Spacer kuningan M3 di empat sudut |
@@ -38,54 +41,44 @@ menampilkan konstanta waktu jatuh tiap varian (sekitar 125 ms untuk varian Stand
 
 | No | Item | Minimal (wajib) | Catatan |
 |---|---|---|---|
-| E1 | Sensor | MPU6050 (I2C) | Alamat 0x68 |
-| E2 | Driver motor | L298N, atau driver lain yang setara/lebih baik dengan alasan tertulis | Jatuh tegangan L298N sekitar 2 V; perhitungkan dalam laporan |
-| E3 | Motor | 2 motor DC bergearbox, tegangan nominal 6 V, 150–300 rpm | TT 1:48 boleh. Motor metal gear (mis. JGA25-370 6 V) lebih presisi karena backlash kecil |
-| E4 | Baterai | 2S Li-ion 18650 (7,4 V nominal, 8,4 V penuh) | Jangan dipakai di bawah 6,6 V |
-| E5 | Pengaman | Saklar daya utama + sekring 2–3 A di kabel positif baterai | |
-| E6 | Kenop | 3 potensiometer linear 10 kΩ (B10K) | **Kaki ujung ke 3V3, bukan 5 V**: ADC STM32 tidak toleran 5 V |
+| E1 | Sensor kemiringan | IMU yang memberi laju sudut (gyro) dan arah gravitasi (akselerometer), atau sudut hasil fusi | Contoh: MPU6050, MPU9250, ICM-20948, BMI160, LSM6DS3, BNO055 |
+| E2 | Driver motor | Driver yang cocok dengan motor, tegangan baterai, dan arus macet motor | Contoh: L298N, TB6612FNG, DRV8833, BTS7960; untuk stepper A4988, DRV8825, TMC2209 |
+| E3 | Motor | 2 motor yang sama: DC bergearbox atau stepper | Motor dengan backlash kecil (metal gear atau stepper) lebih mudah di-tuning |
+| E4 | Baterai | Sesuai tegangan motor dan driver, kapasitas cukup untuk ≥ 15 menit uji | 2S Li-ion 18650 umum dipakai; jangan dikosongkan di bawah batas sel (± 3,3 V/sel) |
+| E5 | Pengaman | Saklar daya utama + sekring sesuai arus motor di kabel positif baterai | |
+| E6 | Kenop | 3 potensiometer linear (mis. 10 kΩ) | **Kaki ujung ke tegangan referensi ADC** (3V3 pada Black Pill), bukan 5 V |
 | E7 | Tombol | 1 tombol untuk kalibrasi dan menyalakan/mematikan motor | INPUT_PULLUP |
-| E8 | Ground | Semua GND (baterai, L298N, Black Pill, MPU6050, kenop) disatukan | |
-| E9 | Pemantau baterai | Disarankan: pembagi tegangan ke ADC | Motor diputus otomatis bila baterai < 6,6 V |
+| E8 | Ground | Semua GND (baterai, driver, mikrokontroler, sensor, kenop) disatukan | |
+| E9 | Pemantau baterai | Disarankan: pembagi tegangan ke ADC | Motor diputus otomatis bila baterai di bawah batas |
 
-### Peta pin yang disarankan
+### Peta pin
 
-Sama dengan Topik 3 (I2C) dan Topik 6 (L298N), ditambah kanal B dan kenop.
+Kelompok menyusun peta pin sendiri dan mencantumkannya di skema. Hal yang perlu diperhatikan pada
+Black Pill:
 
-| Fungsi | Pin Black Pill | Ke |
-|---|---|---|
-| I2C SCL | PB6 | MPU6050 SCL |
-| I2C SDA | PB7 | MPU6050 SDA |
-| PWM motor kiri | PA8 (TIM1_CH1) | L298N ENA (jumper dilepas) |
-| Arah motor kiri | PB12, PB13 | L298N IN1, IN2 |
-| PWM motor kanan | PA9 (TIM1_CH2) | L298N ENB (jumper dilepas) |
-| Arah motor kanan | PB14, PB15 | L298N IN3, IN4 |
-| Kenop Kp, Ki, Kd | PA1, PA2, PA3 | Kaki tengah potensiometer |
-| Tombol | PB0 | Tombol ke GND |
-| Tegangan baterai (opsional) | PA4 | Pembagi 10 kΩ / 3,3 kΩ |
-| LED status | PC13 (LED bawaan) | |
-
-PA0 tidak dipakai untuk kenop karena tombol KEY bawaan Black Pill terhubung ke PA0. Serial lewat USB CDC,
-115200 baud, seperti praktikum.
+- Sinyal PWM/STEP harus dari pin yang terhubung ke timer (mis. PA8 dan PA9 di TIM1).
+- Kenop harus di pin ADC. PA0 sebaiknya tidak dipakai karena tombol KEY bawaan terhubung ke sana.
+- Sensor I2C bisa memakai PB6 (SCL) dan PB7 (SDA) seperti Topik 3; sensor SPI memakai pin SPI1/SPI2.
+- Serial lewat USB CDC, 115200 baud, seperti praktikum.
 
 ## 5. Spesifikasi firmware
 
 | No | Item | Minimal (wajib) |
 |---|---|---|
 | F1 | Loop kontrol | Periode tetap 5 ms (200 Hz) diatur dengan `micros()`, tanpa `delay()` di dalam loop |
-| F2 | Kalibrasi gyro | Saat menyala, robot diam ±1 detik, rata-rata ≥ 200 bacaan gyro disimpan sebagai bias |
+| F2 | Kalibrasi sensor | Saat menyala, robot diam ±1 detik, offset gyro dirata-rata dari ≥ 200 bacaan (atau prosedur kalibrasi bawaan sensor) |
 | F3 | Titik nol | Sudut setimbang diukur saat robot dipegang di titik "tanpa bobot", lalu disimpan sebagai setpoint |
-| F4 | Estimasi sudut | Filter komplementer: `sudut = a·(sudut + gyro·dt) + (1 − a)·sudut_acc`, nilai `a` dipilih dan diberi alasan (0,98–0,998) |
-| F5 | Kenop | Dibaca ≤ 20 Hz, dihaluskan (rata-rata bergerak atau EMA), dipetakan non-linear: `K = Kmaks·(adc/4095)²` |
-| F6 | PID | Suku D dari laju gyro (bukan dari selisih error); suku I dengan anti-windup (batas \|Ki·I\| ≤ 255) |
-| F7 | Deadband motor | PWM minimum ditambahkan supaya motor langsung berputar; nilainya diukur sendiri |
+| F4 | Estimasi sudut | Fusi gyro dan akselerometer (filter komplementer, Kalman, Madgwick/Mahony, atau fusi bawaan sensor), parameter dipilih dan diberi alasan. Contoh komplementer: `sudut = a·(sudut + gyro·dt) + (1 − a)·sudut_acc` |
+| F5 | Kenop | Dibaca ≤ 20 Hz, dihaluskan (rata-rata bergerak atau EMA), dipetakan non-linear: `K = Kmaks·(adc/adc_maks)²` |
+| F6 | PID | Suku D dari laju sudut gyro (bukan dari selisih error); suku I dengan anti-windup (keluaran I dibatasi) |
+| F7 | Keluaran motor | Motor DC: PWM minimum ditambahkan untuk mengatasi deadband (diukur sendiri). Stepper: keluaran PID dipetakan ke kecepatan/percepatan langkah dengan batas |
 | F8 | Pemutus | Motor mati bila \|sudut\| > 40°; menyala lagi hanya lewat tombol |
-| F9 | Log | Serial CSV ≥ 50 Hz: `t_ms,sudut,pwm,kp,ki,kd` |
+| F9 | Log | Serial CSV ≥ 50 Hz: `t_ms,sudut,keluaran,kp,ki,kd` |
 | F10 | Status | LED PC13 berkedip saat PID aktif |
 
-Rentang gain awal dari simulasi (motor TT, varian Standar): Kp 0–60 PWM/°, Ki 0–400 PWM/(°·s),
-Kd 0–3 PWM/(°/s). Robot berdiri di sekitar Kp 30, Ki 150, Kd 1. Robot nyata hampir pasti butuh nilai
-lain; rentang ini hanya titik awal.
+Rentang gain awal dari simulasi (contoh MPU6050, L298N, motor TT, varian Standar): Kp 0–60 PWM/°,
+Ki 0–400 PWM/(°·s), Kd 0–3 PWM/(°/s). Robot berdiri di sekitar Kp 30, Ki 150, Kd 1. Sensor, driver, atau
+motor lain membutuhkan nilai lain; rentang ini hanya titik awal.
 
 ## 6. Pengujian dan kriteria lulus
 
@@ -106,8 +99,8 @@ lewat serial.
 2. Gambar rancangan: sketsa atau CAD dengan ukuran utama, serta posisi pusat massa (dihitung atau diukur).
 3. Skema rangkaian lengkap dengan peta pin.
 4. Kode program yang dikomentari.
-5. Laporan: perhitungan (tegangan efektif motor setelah L298N, kecepatan roda maksimum, pusat massa),
-   prosedur tuning, plot U3, nilai gain akhir, dan analisis kegagalan yang terjadi selama tuning.
+5. Laporan: alasan pemilihan sensor, driver, dan motor; perhitungan (tegangan dan arus efektif motor
+   setelah driver, kecepatan roda maksimum, pusat massa), prosedur tuning, plot U3, nilai gain akhir, dan analisis kegagalan yang terjadi selama tuning.
 6. Video ≤ 2 menit: U1 dan U2.
 
 ## 8. Keselamatan
@@ -116,14 +109,15 @@ lewat serial.
   menggembung.
 - Saat memprogram lewat USB, matikan saklar baterai atau angkat roda dari lantai.
 - Uji pertama robot dipegang tangan atau diikat tali di atas meja, bukan dilepas di tepi meja.
-- Heatsink L298N bisa panas; jangan disentuh setelah robot lama berjalan.
+- Heatsink driver motor bisa panas; jangan disentuh setelah robot lama berjalan.
 
 ## 9. Simulasi pendukung
 
 Buka `simulasi/Buka simulasi.bat` (Windows; tanpa instalasi, tanpa internet). Simulasi memodelkan
 dinamika pendulum terbalik beroda, motor DC dengan back-EMF dan backlash gearbox, jatuh tegangan L298N,
-derau dan bias MPU6050, filter komplementer, dan firmware PID dengan kenop yang sama seperti spesifikasi
-di atas. Hal yang bisa dicoba mahasiswa:
+derau dan bias MPU6050, filter komplementer, dan firmware PID dengan kenop. Komponen di simulasi
+(MPU6050, L298N, motor TT) hanya contoh; prinsipnya sama untuk sensor, driver, dan motor lain. Hal yang
+bisa dicoba mahasiswa:
 
 - Robot dengan P saja: robot tegak sebentar lalu lari dan jatuh. Suku I dibutuhkan untuk melawan back-EMF motor.
 - Lewati kalibrasi gyro atau titik nol: robot lari ke satu arah.
