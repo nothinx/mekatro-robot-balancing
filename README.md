@@ -12,7 +12,9 @@
 
 ## Menjalankan simulasi
 
-Klik dua kali `simulasi/Buka simulasi.bat`. Server kecil PowerShell berjalan di `http://localhost:8137/`
+Daring: https://nothinx.github.io/mekatro-robot-balancing/
+
+Luring (tanpa internet): klik dua kali `simulasi/Buka simulasi.bat`. Server kecil PowerShell berjalan di `http://localhost:8137/`
 dan browser terbuka otomatis. Biarkan jendela hitamnya terbuka selama simulasi dipakai.
 
 Halaman tidak bisa dibuka langsung dari `index.html` (file://), karena browser memblokir modul JavaScript
