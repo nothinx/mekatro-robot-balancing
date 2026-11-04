@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulasi Robot Balancing</title>
+<meta name="description" content="Simulasi 3D robot self-balancing roda dua untuk tugas rancang Mekatronika: MPU6050, filter komplementer, PID dengan kenop potensiometer, L298N, motor DC.">
+<link rel="stylesheet" href="gaya.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<div class="tata">
+  <main class="panggung" aria-label="Tampilan 3D robot">
+    <div id="layar" class="layar"></div>
+    <div id="label" class="label-lapis" aria-hidden="true"></div>
+    <div class="lencana" id="lencana" role="status" aria-live="polite">Memuat model 3D…</div>
+    <div class="alat-kamera" role="group" aria-label="Kamera dan waktu">
+      <button type="button" data-kamera="ikuti" aria-pressed="true">Ikuti</button>
+      <button type="button" data-kamera="samping" aria-pressed="false">Samping</button>
+      <button type="button" data-kamera="bebas" aria-pressed="false">Bebas</button>
+      <span class="pemisah"></span>
+      <label class="pilih-kecil"><span class="teks-kecepatan">Kecepatan</span>
+        <select id="skalaWaktu" aria-label="Kecepatan simulasi"><option value="1">1×</option><option value="0.25">0,25×</option><option value="0.1">0,1×</option></select>
+      </label>
+      <label class="cek"><input type="checkbox" id="tampilLabel" checked> Label</label>
+      <label class="cek"><input type="checkbox" id="tampilCOM" checked> Pusat massa</label>
+    </div>
+
+    <section class="rantai" aria-label="Alur sinyal satu siklus kontrol">
+      <div class="mata" data-tahap="sensor">
+        <h3>MPU6050</h3>
+        <p><span class="angka" id="vGyro">0,0</span> °/s gyro</p>
+        <p><span class="angka" id="vAcc">0,0</span> ° akselerometer</p>
+      </div>
+      <div class="mata" data-tahap="filter">
+        <h3>Filter komplementer</h3>
+        <p><span class="angka besar" id="vEst">0,00</span> ° estimasi</p>
+        <p><span class="angka" id="vNyata">0,00</span> ° sebenarnya</p>
+      </div>
+      <div class="mata pid" data-tahap="pid">
+        <h3>PID</h3>
+        <div class="batang"><span>P</span><i><b id="bP"></b></i><em class="angka" id="vP">0</em></div>
+        <div class="batang"><span>I</span><i><b id="bI"></b></i><em class="angka" id="vI">0</em></div>
+        <div class="batang"><span>D</span><i><b id="bD"></b></i><em class="angka" id="vD">0</em></div>
+      </div>
+      <div class="mata" data-tahap="driver">
+        <h3>L298N</h3>
+        <p><span class="angka besar" id="vPwm">0</span> PWM</p>
+        <p><span class="angka" id="vVolt">0,0</span> V ke motor</p>
+      </div>
+      <div class="mata" data-tahap="motor">
+        <h3>Motor &amp; roda</h3>
+        <p><span class="angka" id="vRpm">0</span> rpm</p>
+        <p><span class="angka" id="vPosisi">0</span> cm bergeser</p>
+      </div>
+    </section>
+  </main>
+
+  <aside class="panel" aria-label="Kendali">
+    <header class="kepala">
+      <h1>Robot balancing PID</h1>
+      <p class="sub">Tugas rancang Mekatronika. Black Pill F411, MPU6050, L298N, tiga kenop potensiometer.</p>
+    </header>
+
+    <section class="blok">
+      <h2>Langkah menyalakan</h2>
+      <ol class="langkah">
+        <li id="l1"><button type="button" id="btnKalib">Kalibrasi gyro</button><span class="ket" id="k1">Robot dipegang diam 1 detik.</span></li>
+        <li id="l2"><button type="button" id="btnNol">Setel titik nol</button><span class="ket" id="k2">Pegang di titik setimbang, simpan sudutnya.</span></li>
+        <li id="l3"><button type="button" id="btnJalan" class="utama">Nyalakan motor</button><span class="ket" id="k3">Robot dilepas, PID mulai bekerja.</span></li>
+      </ol>
+      <div class="baris-tombol">
+        <button type="button" id="btnDorongMundur">Dorong ke belakang</button>
+        <button type="button" id="btnDorongMaju">Dorong ke depan</button>
+        <button type="button" id="btnReset">Angkat &amp; pegang lagi</button>
+      </div>
+      <label class="geser">Gaya dorong <output id="oDorong">0,6 N</output>
+        <input type="range" id="gayaDorong" min="0.2" max="2" step="0.1" value="0.6">
+      </label>
+    </section>
+
+    <section class="blok">
+      <h2>Kenop potensiometer</h2>
+      <p class="petunjuk">Seret naik atau turun, atau fokus lalu tekan panah. Pemetaan kuadratik: K = Kmaks × (ADC / 4095)².</p>
+      <div class="kenop-baris" id="kenopBaris"></div>
+    </section>
+
+    <section class="blok">
+      <h2>Grafik 8 detik terakhir</h2>
+      <canvas id="plot" class="plot" height="220" role="img" aria-label="Grafik sudut dan PWM terhadap waktu"></canvas>
+      <ul class="legenda">
+        <li><i class="g-nyata"></i>Sudut sebenarnya</li>
+        <li><i class="g-est"></i>Estimasi filter</li>
+        <li><i class="g-pwm"></i>PWM</li>
+      </ul>
+    </section>
+
+    <section class="blok">
+      <h2>Serial monitor</h2>
+      <pre class="serial" id="serial" aria-live="off">t_ms,sudut,pwm,kp,ki,kd</pre>
+      <button type="button" id="btnCsv">Unduh CSV 30 detik terakhir</button>
+    </section>
+
+    <details class="blok" open>
+      <summary>Robot &amp; fisik</summary>
+      <label class="pilih">Varian badan <select id="varian"></select></label>
+      <p class="ket" id="ketVarian"></p>
+      <label class="pilih">Motor <select id="motor"></select></label>
+      <label class="geser">Tegangan baterai 2S <output id="oVbat"></output>
+        <input type="range" id="vbat" min="6.8" max="8.4" step="0.1" value="7.8"></label>
+      <label class="geser">Geser baterai ke depan <output id="oOffset"></output>
+        <input type="range" id="offsetBat" min="-15" max="15" step="1" value="0"></label>
+      <label class="cek"><input type="checkbox" id="backlash" checked> Backlash gearbox</label>
+      <dl class="data" id="dataFisik"></dl>
+    </details>
+
+    <details class="blok">
+      <summary>Firmware</summary>
+      <label class="geser">Alpha filter komplementer <output id="oAlpha"></output>
+        <input type="range" id="alpha" min="0.9" max="0.999" step="0.001" value="0.995"></label>
+      <label class="geser">PWM minimum (deadband) <output id="oPwmMin"></output>
+        <input type="range" id="pwmMin" min="0" max="80" step="1" value="30"></label>
+      <label class="pilih">Laju loop kontrol <select id="loopHz"><option value="100">100 Hz</option><option value="200" selected>200 Hz</option><option value="500">500 Hz</option></select></label>
+      <label class="geser">Batas sudut motor diputus <output id="oBatas"></output>
+        <input type="range" id="batas" min="15" max="60" step="1" value="40"></label>
+      <p class="ket">Nilai motor, massa, dan derau sensor adalah perkiraan dari lembar data. Ukur robot sendiri untuk angka yang sebenarnya.</p>
+    </details>
+  </aside>
+</div>
+<noscript><p class="galat">Simulasi ini butuh JavaScript. Aktifkan JavaScript lalu muat ulang halaman.</p></noscript>
+<script type="module" src="main.js"></script>
+</body>
+</html>
