@@ -3,6 +3,8 @@
 | File / folder | Untuk | Isi |
 | --- | --- | --- |
 | `SPESIFIKASI.md` | Mahasiswa | Spesifikasi minimal mekanik, elektronik, firmware, uji, dan yang dikumpulkan |
+| `Panduan_Tugas_Rancang_Robot_Balancing.pdf` (+ `.docx`) | Mahasiswa | Perintah tugas, matriks penilaian, dan lembar nilai |
+| `_sumber/build_panduan.py` | Penyusun | Membangun panduan: `python _sumber/build_panduan.py` (python-docx, PDF lewat Microsoft Word) |
 | `simulasi/Buka simulasi.bat` | Semua | Membuka simulasi 3D di browser (offline, tanpa instalasi) |
 | `simulasi/sim.js` | Penyusun | Fisika, model motor & sensor, firmware PID (satu sumber untuk browser dan tes) |
 | `simulasi/model.js` | Penyusun | Model 3D robot dari primitif Three.js, ukuran nyata |
