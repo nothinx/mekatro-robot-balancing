@@ -193,3 +193,6 @@ button.utama.bahaya { background: var(--bahaya); border-color: var(--bahaya); }
 @media (prefers-reduced-motion: reduce) {
   button:active { transform: none; }
 }
+
+/* LCD 16x2: bingkai PCB hijau seperti modul aslinya */
+.lcd { display: block; width: 100%; max-width: 340px; margin: 4px 0 8px; border: 7px solid #1f6b3a; border-radius: 6px; background: #1f4fd6; }

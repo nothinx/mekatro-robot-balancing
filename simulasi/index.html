@@ -52,6 +52,7 @@
         <h3>Motor &amp; roda</h3>
         <p><span class="angka" id="vRpm">0</span> rpm</p>
         <p><span class="angka" id="vPosisi">0</span> cm bergeser</p>
+        <p><span class="angka" id="vEnc">0</span> pulsa encoder</p>
       </div>
     </section>
   </main>
@@ -80,8 +81,10 @@
     </section>
 
     <section class="blok">
-      <h2>Kenop potensiometer</h2>
-      <p class="petunjuk">Seret naik atau turun, atau fokus lalu tekan panah. Pemetaan kuadratik: K = Kmaks × (ADC / 4095)².</p>
+      <h2>Kenop potensiometer &amp; LCD</h2>
+      <canvas id="lcd" class="lcd" width="512" height="136" role="img" aria-label="LCD 16x2"></canvas>
+      <p class="petunjuk">LCD 16x2 I2C diperbarui 5 kali per detik (I2C lambat, jangan tulis LCD di dalam loop PID). Baris 1: Kp, Ki, Kd. Baris 2: sudut error dan kecepatan roda dari encoder.</p>
+      <p class="petunjuk">Seret kenop naik atau turun, atau fokus lalu tekan panah. Pemetaan kuadratik: K = Kmaks × (ADC / 4095)².</p>
       <div class="kenop-baris" id="kenopBaris"></div>
     </section>
 
@@ -97,7 +100,7 @@
 
     <section class="blok">
       <h2>Serial monitor</h2>
-      <pre class="serial" id="serial" aria-live="off">t_ms,sudut,pwm,kp,ki,kd</pre>
+      <pre class="serial" id="serial" aria-live="off">t_ms,sudut,pwm,kp,ki,kd,enc</pre>
       <button type="button" id="btnCsv">Unduh CSV 30 detik terakhir</button>
     </section>
 

@@ -101,8 +101,9 @@ function bangunModel() {
   if (model) {
     scene.remove(model.root);
     model.root.traverse(o => { if (o.geometry && !o.geometry.parameters?.shapes) o.geometry.dispose(); });
+    model.lcd.dispose();
   }
-  model = rakitRobot({ ...s.b, offsetBaterai: s.o.offsetBaterai / 1 }, s.o.motor);
+  model = rakitRobot({ ...s.b, offsetBaterai: s.o.offsetBaterai / 1 }, s.o.motor, $('lcd'));
   model.root.add(garisTegak);
   scene.add(model.root);
   model.com.visible = garisTegak.visible = $('tampilCOM').checked;
@@ -110,7 +111,7 @@ function bangunModel() {
 bangunModel();
 
 // ---------- Label komponen ----------
-const LABEL = [['mpu', 'MPU6050', 'kiri'], ['l298n', 'L298N', 'kiri'], ['bp', 'Black Pill F411', 'kiri'], ['baterai', 'Baterai 2S 18650', 'atas'], ['kenop', 'Kenop Kp, Ki, Kd', 'kanan'], ['motor', 'Motor + gearbox', 'kanan'], ['com', 'Pusat massa', 'kanan']];
+const LABEL = [['mpu', 'MPU6050', 'kiri'], ['l298n', 'L298N', 'kiri'], ['bp', 'Black Pill F411', 'kiri'], ['baterai', 'Baterai 2S 18650', 'atas'], ['kenop', 'Kenop Kp, Ki, Kd', 'kanan'], ['lcd', 'LCD 16x2 I2C', 'atas'], ['enc', 'Encoder LM393', 'kiri'], ['motor', 'Motor + gearbox', 'kanan'], ['com', 'Pusat massa', 'kanan']];
 const lapisLabel = $('label');
 const elLabel = LABEL.map(([k, teks, arah]) => { const e = document.createElement('span'); e.textContent = teks; e.className = arah; lapisLabel.appendChild(e); return [k, e]; });
 const v3 = new THREE.Vector3();
@@ -196,6 +197,31 @@ function gambarKenop(i) {
 }
 KENOP.forEach((_, i) => gambarKenop(i));
 
+// ---------- LCD 16x2 I2C (canvas yang sama dipakai panel dan tekstur 3D) ----------
+const lcd = $('lcd'), lcdCtx = lcd.getContext('2d');
+const kanan = (v, n, d) => Math.min(v, 10 ** (n - (d ? d + 1 : 0)) - 10 ** -d).toFixed(d).padStart(n);
+const bertanda = (v, n, d) => ((v < 0 ? '-' : '+') + kanan(Math.abs(v), n - 1, d).trim()).padStart(n);
+let tLCD = 0;
+function tulisLCD() {
+  const g = s.gain;
+  const baris = [
+    `P${kanan(g.kp, 4, 1)} I${kanan(g.ki, 3, 0)} D${kanan(g.kd, 4, 2)}`,
+    s.o.motor === 'tt' ? `A${bertanda(s.est - s.offsetSudut, 5, 1)} v${bertanda(s.vEnc, 5, 2)}m/s` : `A${bertanda(s.est - s.offsetSudut, 5, 1)} tanpa enc`,
+  ];
+  const cw = 30, ch = 52, m = 16;
+  lcdCtx.fillStyle = '#1f4fd6'; lcdCtx.fillRect(0, 0, lcd.width, lcd.height);
+  lcdCtx.font = 'bold 40px Consolas, "Courier New", monospace'; lcdCtx.textAlign = 'center'; lcdCtx.textBaseline = 'middle';
+  baris.forEach((b, j) => {
+    for (let i = 0; i < 16; i++) {
+      const x = m + i * cw, y = m + j * ch;
+      lcdCtx.fillStyle = 'rgba(255,255,255,.08)'; lcdCtx.fillRect(x + 2, y + 3, cw - 4, ch - 6);
+      lcdCtx.fillStyle = '#eef4ff'; lcdCtx.fillText(b[i] ?? ' ', x + cw / 2, y + ch / 2 + 2);
+    }
+  });
+  lcd.setAttribute('aria-label', `LCD: ${baris[0]} / ${baris[1]}`);
+  model.lcd.needsUpdate = true;
+}
+
 // ---------- Tombol ----------
 const btn = { kalib: $('btnKalib'), nol: $('btnNol'), jalan: $('btnJalan'), maju: $('btnDorongMaju'), mundur: $('btnDorongMundur'), reset: $('btnReset') };
 btn.kalib.onclick = () => S.kalibrasi(s);
@@ -259,19 +285,19 @@ const serialBaris = [];
 function rekam() {
   if (s.t >= tRekam) {
     tRekam = s.t + 0.02;
-    rekaman.push({ t: s.t, th: s.th * S.DEG, est: s.est, pwm: s.pwm, ...s.gain });
+    rekaman.push({ t: s.t, th: s.th * S.DEG, est: s.est, pwm: s.pwm, enc: s.enc, ...s.gain });
     while (rekaman.length && rekaman[0].t < s.t - 30) rekaman.shift();
   }
   if (s.t >= tSerial) {
     tSerial = s.t + 0.1;
-    serialBaris.push(`${Math.round(s.t * 1000)},${(s.est - s.offsetSudut).toFixed(2)},${s.pwm},${s.gain.kp.toFixed(1)},${s.gain.ki.toFixed(0)},${s.gain.kd.toFixed(2)}`);
+    serialBaris.push(`${Math.round(s.t * 1000)},${(s.est - s.offsetSudut).toFixed(2)},${s.pwm},${s.gain.kp.toFixed(1)},${s.gain.ki.toFixed(0)},${s.gain.kd.toFixed(2)},${s.enc}`);
     if (serialBaris.length > 7) serialBaris.shift();
-    $('serial').textContent = 't_ms,sudut,pwm,kp,ki,kd\n' + serialBaris.join('\n');
+    $('serial').textContent = 't_ms,sudut,pwm,kp,ki,kd,enc\n' + serialBaris.join('\n');
   }
 }
 $('btnCsv').onclick = () => {
   if (!rekaman.length) return;
-  const isi = 't_s,sudut_sebenarnya,sudut_estimasi,pwm,kp,ki,kd\n' + rekaman.map(r => [r.t.toFixed(3), r.th.toFixed(3), r.est.toFixed(3), r.pwm, r.kp.toFixed(2), r.ki.toFixed(1), r.kd.toFixed(3)].join(',')).join('\n');
+  const isi = 't_s,sudut_sebenarnya,sudut_estimasi,pwm,kp,ki,kd,enc\n' + rekaman.map(r => [r.t.toFixed(3), r.th.toFixed(3), r.est.toFixed(3), r.pwm, r.kp.toFixed(2), r.ki.toFixed(1), r.kd.toFixed(3), r.enc].join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([isi], { type: 'text/csv' }));
   a.download = `balancing-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
@@ -329,7 +355,7 @@ function perbaruiStatus() {
   else if (m === 'titiknol') { nada = 'proses'; judul = 'Mengukur titik setimbang'; isi = 'Robot dipegang tepat di posisi pusat massa di atas sumbu roda.'; }
   else if (m === 'jalan') {
     nada = 'jalan'; judul = `PID aktif, berdiri ${fmt(tBerdiri, 1)} detik`;
-    isi = !s.sudahKalibrasi ? 'Gyro belum dikalibrasi: estimasi sudut melantur dan robot akan lari.' : !s.sudahTitikNol ? 'Titik nol belum disetel: robot mengejar sudut yang salah dan lari ke satu arah.' : Math.abs(s.xd) > 0.12 ? 'Robot tegak tetapi terus bergeser: PID sudut tidak tahu kecepatan roda. Encoder roda bisa menahannya.' : 'Putar kenop untuk melihat efek tiap gain. Coba dorong robotnya.';
+    isi = !s.sudahKalibrasi ? 'Gyro belum dikalibrasi: estimasi sudut melantur dan robot akan lari.' : !s.sudahTitikNol ? 'Titik nol belum disetel: robot mengejar sudut yang salah dan lari ke satu arah.' : Math.abs(s.xd) > 0.12 ? 'Robot tegak tetapi terus bergeser: PID sudut tidak tahu kecepatan roda. Encoder sudah mengukurnya (lihat LCD); pakai sebagai loop luar untuk menahannya.' : 'Putar kenop untuk melihat efek tiap gain. Coba dorong robotnya.';
   } else if (m === 'putus') { nada = 'bahaya'; judul = `Motor diputus setelah ${fmt(tBerdiri, 1)} detik`; isi = `Sudut melewati batas ${s.o.batasSudut}°. Klik "Angkat & pegang lagi", ubah kenop, lalu nyalakan lagi.`; }
   else if (s.jatuh) { nada = 'bahaya'; judul = 'Robot rebah'; isi = 'Klik "Angkat & pegang lagi".'; }
   else if (s.dipegang) { judul = 'Robot dipegang tangan'; isi = !s.sudahKalibrasi ? 'Mulai dari langkah 1: kalibrasi gyro.' : !s.sudahTitikNol ? 'Lanjut langkah 2: setel titik nol.' : 'Siap. Nyalakan motor untuk melepas robot.'; }
@@ -347,6 +373,7 @@ function perbaruiStatus() {
   }
   set('vPwm', String(s.pwm)); set('vVolt', fmt(s.pwm / 255 * Math.max(0, s.o.vbat - 2), 1));
   set('vRpm', fmt(s.psid * 60 / (2 * Math.PI), 0)); set('vPosisi', fmt(s.x * 100, 0));
+  set('vEnc', s.o.motor === 'tt' ? String(s.enc).replace('-', '−') : '–');
 }
 
 // ---------- Loop ----------
@@ -366,6 +393,7 @@ function frame(now) {
   const n = Math.floor(sisa / DT);
   if (n > 0) { S.langkah(s, n * DT); sisa -= n * DT; }
   rekam();
+  if (s.t >= tLCD) { tLCD = s.t + 0.2; tulisLCD(); }
 
   model.root.position.set(s.x, S.RODA.r, 0);
   model.badan.rotation.z = -s.th;

@@ -16,7 +16,7 @@ function jalankan(opsi, { kalib = true, nol = true, detik = 10, dorongN = 0 } = 
     S.langkah(s, 0.1);
     if (s.jatuh || s.mode === 'putus') return { jatuh: true, t };
   }
-  return { jatuh: false, x: s.x };
+  return { jatuh: false, x: s.x, s };
 }
 
 // Pemetaan kenop: ujung 0 dan 4095
@@ -33,5 +33,12 @@ assert.equal(jalankan({ adc: adc(30, 150, 1) }).jatuh, false);
 assert.equal(jalankan({ adc: adc(40, 250, 1) }, { dorongN: 0.6 }).jatuh, false);
 // Tanpa kalibrasi titik nol: robot lari ke depan dan jatuh
 assert.equal(jalankan({ adc: adc(30, 150, 1) }, { nol: false }).jatuh, true);
+
+// Encoder: jarak dari pulsa cocok dengan putaran roda relatif badan (toleransi 3 celah, salah arah saat didorong)
+{
+  const { s } = jalankan({ adc: adc(40, 250, 1) }, { dorongN: 0.6 });
+  const perCelah = 2 * Math.PI * S.RODA.r / S.ENCODER.celah;
+  assert.ok(Math.abs(s.enc * perCelah - s.phiRel * S.RODA.r) < 3 * perCelah, `enc ${s.enc}, phiRel ${s.phiRel}`);
+}
 
 console.log('tes-sim: semua lulus');

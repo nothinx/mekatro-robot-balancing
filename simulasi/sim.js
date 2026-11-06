@@ -23,6 +23,9 @@ export const MOTOR = {
   n20: { nama: 'JGA25-370 1:34 (6 V)', Vr: 6, torsiMacet: 0.22, rpmBebas: 280, gesek: 0.010, backlash: 1.0, Jm: 3.0e-4 },
 };
 
+// Encoder optik: piringan hitam 20 celah di poros ganda motor TT + modul LM393 (satu kanal, tanpa arah)
+export const ENCODER = { celah: 20 };
+
 // Daftar komponen yang menempel di badan: [nama, massa kg, x, z] (z dari sumbu roda).
 export function komponen(varianId, offsetBaterai = 0) {
   const d = VARIAN[varianId].jarak;
@@ -42,6 +45,8 @@ export function komponen(varianId, offsetBaterai = 0) {
       ['Kenop potensio (3)', 0.020, 0.038, z3 + 0.012],
       ['Baterai 2x18650 + holder', 0.107, offsetBaterai, z3 + 0.013],
       ['Kabel & baut', 0.025, 0, (z1 + z2) / 2],
+      ['LCD 16x2 + modul I2C', 0.035, 0, z3 + 0.022],
+      ['Encoder LM393 + piringan (2)', 0.010, -0.02, 0],
     ],
   };
 }
@@ -76,6 +81,7 @@ export function buatRobot(opsi = {}) {
     est: 0, I: 0, pwm: 0, gyroBias: 0, biasSebenarnya: 0, offsetSudut: 0,
     kalib: { n: 0, sum: 0 }, gain: { kp: 0, ki: 0, kd: 0 }, adcHalus: [...o.adc].map(v => v * 4095),
     tKontrol: 0, tPot: 0, gyroUkur: 0, sudutAcc: 0, u: 0, arus: 0,
+    enc: 0, encCelah: 0, encArah: 1, encLalu: 0, tEnc: 0, vEnc: 0,
     rnd: rng(o.seed),
   };
   s.biasSebenarnya = (s.rnd() - 0.5) * 3; // bias gyro MPU6050 sebelum kalibrasi, ±1,5 °/s
@@ -98,7 +104,7 @@ function rng(seed) { // mulberry32 + Box-Muller
 export function dorong(s, newton, detik = 0.08) { s.gaya = newton; s.gayaSampai = s.t + detik; }
 
 export function reset(s, sudutAwalDeg = 0) {
-  Object.assign(s, { x: 0, xd: 0, th: sudutAwalDeg / DEG, thd: 0, psi: 0, psid: 0, phiRel: 0, est: sudutAwalDeg, I: 0, pwm: 0, jatuh: false, gaya: 0, gayaSampai: 0, dipegang: true });
+  Object.assign(s, { x: 0, xd: 0, th: sudutAwalDeg / DEG, thd: 0, psi: 0, psid: 0, phiRel: 0, est: sudutAwalDeg, I: 0, pwm: 0, jatuh: false, enc: 0, encCelah: 0, encLalu: 0, vEnc: 0, gaya: 0, gayaSampai: 0, dipegang: true });
   if (s.mode === 'putus') s.mode = 'siap';
 }
 
@@ -205,6 +211,16 @@ function firmware(s, dtK) {
   const gyro = imu.gyro - s.gyroBias;
   s.est = o.alpha * (s.est + gyro * dtK) + (1 - o.alpha) * sudutAcc;
   s.gyroUkur = gyro; s.sudutAcc = sudutAcc;
+
+  // Encoder LM393: ISR menghitung tepi naik. Satu kanal tidak tahu arah, jadi arah diambil dari tanda PWM
+  // terakhir (salah hitung bila roda didorong melawan arah motor). Piringan di poros roda, sensor di badan.
+  const celah = Math.floor(s.phiRel * ENCODER.celah / (2 * Math.PI));
+  if (s.pwm) s.encArah = Math.sign(s.pwm);
+  s.enc += Math.abs(celah - s.encCelah) * s.encArah; s.encCelah = celah;
+  if (s.t >= s.tEnc) { // kecepatan dari selisih pulsa tiap 50 ms
+    s.tEnc = s.t + 0.05;
+    s.vEnc = (s.enc - s.encLalu) / 0.05 * 2 * Math.PI * RODA.r / ENCODER.celah; s.encLalu = s.enc;
+  }
 
   if (s.mode === 'kalibrasi') {
     s.kalib.sum += imu.gyro; s.kalib.n++;

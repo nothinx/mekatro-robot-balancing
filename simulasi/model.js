@@ -1,7 +1,7 @@
 // Model 3D robot dari primitif Three.js, ukuran nyata dalam meter.
 // Sumbu Three.js: x maju, y atas, z lateral. Titik asal = sumbu roda.
 import * as THREE from 'three';
-import { RODA, DEK, JEJAK } from './sim.js';
+import { RODA, DEK, JEJAK, ENCODER } from './sim.js';
 
 const std = (color, roughness = 0.5, metalness = 0, extra = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness, metalness, ...extra });
@@ -18,6 +18,7 @@ const M = {
   pcbMerah: std(0xa61d24, 0.55),
   pcbBiru: std(0x1d4c9c, 0.5),
   pcbHitam: std(0x151618, 0.45),
+  pcbHijau: std(0x1f6b3a, 0.5),
   terminal: std(0x1f6fd0, 0.45),
   emas: std(0xd8b04c, 0.25, 1),
   aluminium: std(0x2a2c30, 0.4, 0.8),
@@ -137,6 +138,42 @@ function motorJGA() {
   return g;
 }
 
+// ---------- Encoder: piringan 20 celah di poros ganda TT + modul LM393 ----------
+let texPiringan;
+function piringanEncoder() {
+  if (!texPiringan) {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const x = c.getContext('2d');
+    x.fillStyle = '#fff'; x.beginPath(); x.arc(128, 128, 127, 0, 2 * Math.PI); x.fill();
+    x.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < ENCODER.celah; i++) { x.save(); x.translate(128, 128); x.rotate(i / ENCODER.celah * 2 * Math.PI); x.fillRect(80, -8, 38, 16); x.restore(); }
+    x.beginPath(); x.arc(128, 128, 12, 0, 2 * Math.PI); x.fill();
+    texPiringan = new THREE.CanvasTexture(c);
+  }
+  return bayang(new THREE.Mesh(new THREE.CircleGeometry(0.0125, 48), std(0x111214, 0.6, 0, { alphaMap: texPiringan, alphaTest: 0.5, side: THREE.DoubleSide })));
+}
+
+function lm393() { // garpu optik mengapit tepi piringan, PCB memanjang ke belakang
+  const g = new THREE.Group();
+  di(kotak(0.030, 0.0016, 0.014, M.pcbBiru), -0.0295, -0.004, 0, g);
+  for (const z of [0.0035, -0.0035]) di(kotak(0.006, 0.012, 0.0025, M.hitam), -0.0115, 0.0028, z, g);
+  di(kotak(0.005, 0.0012, 0.004, M.hitam), -0.030, -0.0026, 0, g);
+  for (let i = 0; i < 3; i++) di(kotak(0.006, 0.0006, 0.0006, M.emas), -0.044, -0.0035, (i - 1) * 0.00254, g);
+  return g;
+}
+
+// ---------- LCD 16x2 + modul I2C (PCF8574), berdiri, layar menghadap +z ----------
+function lcd1602(tex) {
+  const g = new THREE.Group();
+  di(kotak(0.080, 0.036, 0.0016, M.pcbHijau), 0, 0, 0, g);
+  di(kotak(0.071, 0.026, 0.007, M.hitam), 0, 0, 0.0043, g);
+  di(new THREE.Mesh(new THREE.PlaneGeometry(0.064, 0.017), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })), 0, 0, 0.0079, g);
+  di(kotak(0.042, 0.019, 0.0016, M.pcbHitam), 0, -0.002, -0.006, g);
+  di(kotak(0.040, 0.0025, 0.0085, M.hitam), 0, 0.0145, -0.0045, g);
+  di(kotak(0.070, 0.003, 0.010, M.hitam), 0, -0.0195, -0.002, g); // dudukan
+  return g;
+}
+
 // ---------- Elektronik ----------
 function l298n() {
   const g = new THREE.Group();
@@ -229,7 +266,7 @@ function kabel(titik, warna, r = 0.00065) {
 // ---------- Rakit ----------
 export const WARNA_KENOP = [0xc0392b, 0x1e8449, 0x1f5fbf];
 
-export function rakitRobot(sifat, motorId) {
+export function rakitRobot(sifat, motorId, kanvasLCD) {
   const root = new THREE.Group();  // ikut posisi x
   const badan = new THREE.Group(); // ikut kemiringan
   root.add(badan);
@@ -272,6 +309,11 @@ export function rakitRobot(sifat, motorId) {
   const kenopKenop = WARNA_KENOP.map((w, i) => { const k = kenop(w); di(k, 0.036, z3 + t, (i - 1) * 0.030, badan); return k.userData.putar; });
   jangkar.kenop = di(new THREE.Object3D(), 0.036, z3 + t + 0.024, 0.030, badan);
 
+  // LCD berdiri di tepi kanan dek atas
+  const texLCD = new THREE.CanvasTexture(kanvasLCD); texLCD.colorSpace = THREE.SRGBColorSpace;
+  di(lcd1602(texLCD), 0, z3 + t + 0.0215, 0.053, badan);
+  jangkar.lcd = di(new THREE.Object3D(), 0, z3 + t + 0.042, 0.055, badan);
+
   // tombol arm dan saklar daya di belakang
   di(kotak(0.012, 0.0035, 0.012, M.hitam), -0.042, z3 + t + 0.0018, 0.035, badan);
   di(silinder(0.0035, 0.004, std(0xb02020, 0.4), 20), -0.042, z3 + t + 0.0055, 0.035, badan);
@@ -296,6 +338,12 @@ export function rakitRobot(sifat, motorId) {
 
   // roda
   const roda2 = [1, -1].map(sisi => { const r = roda(); r.position.z = sisi * JEJAK / 2; if (sisi < 0) r.scale.z = -1; root.add(r); return r; });
+  if (motorId === 'tt') { // piringan ikut berputar dengan roda (satu poros), LM393 menempel di badan
+    const zEnc = 0.038;
+    for (const r of roda2) di(piringanEncoder(), 0, 0, zEnc - JEJAK / 2, r);
+    for (const sisi of [1, -1]) di(lm393(), 0, 0, sisi * zEnc, badan);
+    jangkar.enc = di(new THREE.Object3D(), -0.03, -0.004, zEnc, badan);
+  }
   jangkar.roda = di(new THREE.Object3D(), 0, 0, -JEJAK / 2 - 0.02, root);
 
   // penanda pusat massa (pola catur)
@@ -308,5 +356,5 @@ export function rakitRobot(sifat, motorId) {
   badan.add(com);
   jangkar.com = com;
 
-  return { root, badan, roda: roda2, kenop: kenopKenop, jangkar, com, led: M.ledPC13 };
+  return { root, badan, roda: roda2, kenop: kenopKenop, jangkar, com, led: M.ledPC13, lcd: texLCD };
 }
